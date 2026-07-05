@@ -1,6 +1,20 @@
 import {firebaseConfig} from "./firebase-config.js";import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";import{getAuth,signInWithEmailAndPassword,onAuthStateChanged,signOut}from"https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";import{getFirestore,collection,doc,setDoc,updateDoc,onSnapshot,query,orderBy}from"https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app),$=id=>document.getElementById(id),states=["Recibido","En diagnóstico","Esperando autorización","En reparación","Esperando refacción","En pruebas","Terminado","Entregado"];let all=[];
-$("loginBtn").onclick=async()=>{try{await signInWithEmailAndPassword(auth,$("email").value,$("pass").value)}catch(e){$("loginMsg").textContent="Acceso no autorizado"}};$("logout").onclick=()=>signOut(auth);
+$("loginBtn").onclick=async()=>{try{await signInWithEmailAndPassword(auth,$("email").value,$("pass").value)}catch(e){
+  console.error("Firebase Auth error:", e);
+
+  const errores = {
+    "auth/invalid-credential": "Correo o contraseña incorrectos.",
+    "auth/invalid-email": "El correo electrónico no es válido.",
+    "auth/user-disabled": "Este usuario está deshabilitado.",
+    "auth/too-many-requests": "Demasiados intentos. Espera un momento e inténtalo de nuevo.",
+    "auth/network-request-failed": "Error de red. Revisa tu conexión.",
+    "auth/operation-not-allowed": "El acceso por correo y contraseña no está habilitado."
+  };
+
+  $("loginMsg").textContent =
+    errores[e.code] || `Error Firebase: ${e.code || e.message}`;
+}};$("logout").onclick=()=>signOut(auth);
 onAuthStateChanged(auth,u=>{$("login").classList.toggle("hidden",!!u);$("dashboard").classList.toggle("hidden",!u);if(u)listen()});
 $("crear").onclick=async()=>{let now=Date.now(),folio=`XE-${new Date().getFullYear()}-${String(now).slice(-6)}`,d={cliente:$("cliente").value,telefono:$("telefono").value,equipo:$("equipo").value,modelo:$("modelo").value,falla:$("falla").value,nota:$("nota").value,estado:"Recibido",recibido:now,actualizado:now,entregado:null};if(!d.cliente||!d.equipo)return alert("Escribe cliente y equipo");await setDoc(doc(db,"equipos",folio),d);
 let pub={equipo:d.equipo,modelo:d.modelo,nota:d.nota,estado:d.estado,recibido:d.recibido,actualizado:d.actualizado,entregado:d.entregado};
