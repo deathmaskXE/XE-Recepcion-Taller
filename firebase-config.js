@@ -1,5 +1,5 @@
 export const firebaseConfig = {
-  apiKey: "AIzaSyB6AqDzrurVDLZTtPg57cZJh6gR-ubE0P4",
+  apiKey: "AIzaSyB6AqDzrurVDLZTtPg57cZJh6gR-ubEOP4",
   authDomain: "xe-taller.firebaseapp.com",
   projectId: "xe-taller",
   storageBucket: "xe-taller.firebasestorage.app",
