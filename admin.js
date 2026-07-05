@@ -212,19 +212,73 @@ $("crear").onclick=async()=>{
 
 function enviarFolioWhatsApp(d){
 
-  let numero=
-  String(d.telefono||"")
-  .replace(/\D/g,"");
+  function enviarFolioWhatsApp(d){
 
+  let numero = String(d.telefono || "")
+    .replace(/\D/g, "");
 
   if(!numero){
-
     alert("Este cliente no tiene WhatsApp registrado.");
-
     return;
-
   }
 
+  // México: conservar solo 10 dígitos nacionales
+  if(numero.startsWith("521") && numero.length === 13){
+    numero = numero.slice(3);
+  }
+
+  if(numero.startsWith("52") && numero.length === 12){
+    numero = numero.slice(2);
+  }
+
+  if(numero.length !== 10){
+    alert(
+      "El WhatsApp registrado no parece válido.\n\n" +
+      "Número capturado: " + d.telefono
+    );
+    return;
+  }
+
+  const numeroCliente = "52" + numero;
+
+  const link =
+    `https://deathmaskxe.github.io/XE-Recepcion-Taller/?folio=${encodeURIComponent(d.folio)}`;
+
+  const mensaje =
+`🎮 *XE SERVICIO ELECTRÓNICO*
+
+Hola ${d.cliente} 👋
+
+Tu equipo *${d.equipo}* ha sido recibido correctamente en nuestro taller.
+
+🔹 *Folio:* ${d.folio}
+🔹 *Estado actual:* Recibido
+
+Puedes consultar en tiempo real el estado de tu equipo y el tiempo que lleva en nuestro taller aquí:
+
+${link}
+
+Guarda tu folio para futuras consultas.
+
+⚡ *XE Servicio Electrónico*
+Diagnóstico y reparación profesional.`;
+
+  const confirmar = confirm(
+    "ENVIAR FOLIO POR WHATSAPP\n\n" +
+    "Cliente: " + d.cliente + "\n" +
+    "WhatsApp: +" + numeroCliente + "\n\n" +
+    "¿Abrir este número?"
+  );
+
+  if(!confirmar){
+    return;
+  }
+
+  window.open(
+    `https://wa.me/${numeroCliente}?text=${encodeURIComponent(mensaje)}`,
+    "_blank"
+  );
+}
 
   /*
   SI EL NÚMERO TIENE 10 DÍGITOS
