@@ -1,7 +1,7 @@
 import {firebaseConfig} from "./firebase-config.js";
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import{getAuth,signInWithEmailAndPassword,onAuthStateChanged,signOut}from"https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-import{getFirestore,collection,doc,setDoc,updateDoc,onSnapshot,query,orderBy}from"https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+import{getFirestore,collection,doc,setDoc,updateDoc,onSnapshot,query,orderBy,getDocs}from"https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
 const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app);
 const $=id=>document.getElementById(id);
@@ -150,6 +150,7 @@ function render(){
   const taller=arr.filter(x=>x.estado!=="Entregado"&&x.estado!=="Devolución");
   const entregados=arr.filter(x=>x.estado==="Entregado");
   const devoluciones=arr.filter(x=>x.estado==="Devolución");
+  actualizarEstadisticas();
 
   const tarjeta=x=>{const g=garantiaInfo(x);const historial=(x.historial||[]).slice().reverse();const clase=x.estado==="Entregado"?"item-entregado":x.estado==="Devolución"?"item-devolucion":"item-taller";return `<div class="item ${clase}"><div class="itemtop"><div><h3>${x.id} · ${esc(x.equipo)}</h3><p>${esc(x.cliente)} · ${esc(x.falla||"Sin falla reportada")}</p><p>WhatsApp: ${esc(x.telefono||"Sin número")}</p><div class="warranty-badge ${g.clase}"><b>${g.texto}</b><span>${g.detalle}</span></div></div><b>${x.estado}</b></div><div class="controls"><select data-state="${x.id}">${states.map(s=>`<option ${s===x.estado?"selected":""}>${s}</option>`).join("")}</select><textarea data-note="${x.id}" placeholder="Nueva actualización visible para el cliente">${esc(x.nota||"")}</textarea><button data-save="${x.id}">GUARDAR Y AVISAR</button></div><div class="financial-edit"><input type="number" min="0" step="0.01" data-anticipo="${x.id}" value="${Number(x.anticipo||0)}" placeholder="Anticipo"><input type="number" min="0" step="0.01" data-total="${x.id}" value="${Number(x.costoTotal||0)}" placeholder="Costo total"><textarea data-reparacion="${x.id}" placeholder="Reparación realizada para el PDF de entrega">${esc(x.reparacionRealizada||"")}</textarea><button data-finanzas="${x.id}">GUARDAR IMPORTES</button></div><div class="pdf-actions"><button data-pdf-recepcion="${x.id}">PDF RECEPCIÓN Y ANTICIPO</button><button data-pdf-entrega="${x.id}">NOTA DE ENTREGA Y PAGO</button></div><label class="notify-check"><input type="checkbox" data-notify="${x.id}" checked> Abrir WhatsApp con el aviso después de guardar</label><details class="admin-history"><summary>HISTORIAL (${historial.length})</summary><div>${historial.map(h=>`<div class="history-entry"><small>${new Date(h.fecha).toLocaleString("es-MX")}</small><b>${esc(h.estado||"")}</b><span>${esc(h.nota||"Sin nota")}</span></div>`).join("")||"<p>Sin historial.</p>"}</div></details></div>`};
 
@@ -241,6 +242,79 @@ ${link}
   if(ventana)ventana.location.href=url;
   else window.open(url,"_blank");
 }
+
+
+function esMismoMes(timestamp,referencia=new Date()){
+  if(!timestamp)return false;
+  const f=new Date(timestamp);
+  return f.getFullYear()===referencia.getFullYear()&&f.getMonth()===referencia.getMonth();
+}
+
+function moneda(valor){
+  return new Intl.NumberFormat("es-MX",{style:"currency",currency:"MXN",maximumFractionDigits:2}).format(Number(valor)||0);
+}
+
+function actualizarEstadisticas(){
+  const taller=all.filter(x=>x.estado!=="Entregado"&&x.estado!=="Devolución");
+  const entregadosMes=all.filter(x=>x.estado==="Entregado"&&esMismoMes(x.entregado||x.actualizado));
+  const devoluciones=all.filter(x=>x.estado==="Devolución");
+  const autorizacion=all.filter(x=>x.estado==="Esperando autorización");
+  const ingresos=entregadosMes.reduce((s,x)=>s+(Number(x.costoTotal)||0),0);
+  if($("statTaller"))$("statTaller").textContent=taller.length;
+  if($("statEntregadosMes"))$("statEntregadosMes").textContent=entregadosMes.length;
+  if($("statDevoluciones"))$("statDevoluciones").textContent=devoluciones.length;
+  if($("statIngresos"))$("statIngresos").textContent=moneda(ingresos);
+  if($("statAutorizacion"))$("statAutorizacion").textContent=autorizacion.length;
+  if($("statTotal"))$("statTotal").textContent=all.length;
+}
+
+function descargarArchivo(nombre,contenido,tipo){
+  const blob=new Blob([contenido],{type:tipo});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;a.download=nombre;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+async function leerColeccion(nombre){
+  const snap=await getDocs(collection(db,nombre));
+  return snap.docs.map(d=>({id:d.id,...d.data()}));
+}
+
+$("backupAll").onclick=async()=>{
+  const b=$("backupAll");
+  try{
+    b.disabled=true;b.textContent="CREANDO RESPALDO...";
+    const [equipos,estadosPublicos,citas,citasPublicas]=await Promise.all([
+      leerColeccion("equipos"),leerColeccion("estados_publicos"),leerColeccion("citas"),leerColeccion("citas_publicas")
+    ]);
+    const respaldo={
+      formato:"XE-RESPALDO-V1",
+      negocio:"XE Servicio Electrónico",
+      generado:new Date().toISOString(),
+      totales:{equipos:equipos.length,estados_publicos:estadosPublicos.length,citas:citas.length,citas_publicas:citasPublicas.length},
+      datos:{equipos,estados_publicos:estadosPublicos,citas,citas_publicas:citasPublicas}
+    };
+    const fecha=new Date().toISOString().slice(0,10);
+    descargarArchivo(`XE-Respaldo-Completo-${fecha}.json`,JSON.stringify(respaldo,null,2),"application/json;charset=utf-8");
+    alert("Respaldo completo descargado correctamente. Guárdalo en un lugar seguro.");
+  }catch(e){
+    console.error(e);alert("No se pudo crear el respaldo: "+(e.code||e.message));
+  }finally{b.disabled=false;b.textContent="DESCARGAR RESPALDO COMPLETO"}
+};
+
+$("exportCsv").onclick=()=>{
+  const columnas=["Folio","Cliente","Telefono","Equipo","Modelo","Falla","Estado","Recibido","Entregado","Anticipo","Costo total","Reparacion realizada"];
+  const fila=v=>`"${String(v??"").replace(/"/g,'""')}"`;
+  const lineas=all.map(x=>[
+    x.id,x.cliente,x.telefono,x.equipo,x.modelo,x.falla,x.estado,
+    x.recibido?new Date(x.recibido).toLocaleString("es-MX"):"",
+    x.entregado?new Date(x.entregado).toLocaleString("es-MX"):"",
+    Number(x.anticipo||0),Number(x.costoTotal||0),x.reparacionRealizada||""
+  ].map(fila).join(","));
+  const csv="\ufeff"+[columnas.map(fila).join(","),...lineas].join("\n");
+  descargarArchivo(`XE-Equipos-${new Date().toISOString().slice(0,10)}.csv`,csv,"text/csv;charset=utf-8");
+};
 
 function esc(s){
   return String(s).replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
