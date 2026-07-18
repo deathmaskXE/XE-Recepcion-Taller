@@ -1,25 +1,34 @@
-# XE Recepción Taller V1
+# XE Recepción Taller · Fase 1 Beta
 
-Frontend: GitHub Pages. Datos en tiempo real: Firebase Firestore. Acceso privado: Firebase Authentication.
+Esta versión conserva el sistema de recepción e historial y agrega un módulo independiente de agenda de citas.
 
-## Configuración
-1. Crea un proyecto en Firebase.
-2. Agrega una app Web.
-3. Copia `firebaseConfig` en `firebase-config.js`.
-4. En Authentication habilita Email/Password y crea tu usuario administrador.
-5. Crea Firestore Database.
-6. Usa reglas para que clientes puedan leer `equipos` y solo usuarios autenticados puedan escribir:
+## Nuevas páginas
+- `agenda.html`: panel privado para crear, consultar, reagendar, cancelar y convertir citas en recepción.
+- `cita.html`: consulta pública de citas mediante folio.
 
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /equipos/{folio} {
-      allow read: if true;
-      allow write: if request.auth != null;
-    }
-  }
-}
+## Funciones de la agenda
+- Crear folios `XE-CITA-xxxxxx`.
+- Enviar la confirmación por WhatsApp.
+- Cambiar solamente fecha y hora conservando el resto de los datos.
+- Enviar por WhatsApp la nueva propuesta.
+- Historial de movimientos de la cita.
+- PDF premium azul metálico y plata.
+- Solicitar reagendar por WhatsApp.
+- Solicitar llamada por WhatsApp.
+- Convertir una cita en recepción mediante precarga de datos.
 
-7. Sube estos archivos a un repositorio GitHub y activa Pages desde main / root.
+## Firebase
+Publica las reglas incluidas en `firestore.rules.txt`. Se agregan las colecciones:
+- `citas`: información privada para el administrador.
+- `citas_publicas`: información visible al consultar un folio.
 
-IMPORTANTE: no guardes contraseñas en el código. El firebaseConfig web no es una contraseña; la seguridad real se controla con Authentication y Firestore Rules.
+Las colecciones existentes `equipos` y `estados_publicos` no se eliminan ni se modifican.
+
+## Fases 2 y 3 añadidas
+- Historial cronológico y avisos de WhatsApp al actualizar.
+- Campos de accesorios, observaciones físicas, anticipo y costo total.
+- PDF premium de recepción rojo metálico, sin QR ni firma.
+- Captura posterior de reparación realizada e importes.
+- PDF premium de entrega negro y dorado, con historial resumido y garantía, sin QR ni firma.
+- Botón del cliente para solicitar llamada por WhatsApp.
+- Mensaje de confianza al final del seguimiento.

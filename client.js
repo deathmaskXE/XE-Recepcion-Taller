@@ -12,7 +12,8 @@ const states=[
 "Esperando refacción",
 "En pruebas",
 "Terminado",
-"Entregado"
+"Entregado",
+"Devolución"
 ];
 
 let unsub,timerInt,current;
@@ -69,18 +70,29 @@ function render(){
     </div>`
   ).join("");
 
+  renderHistory();
   renderWarranty();
   clearInterval(timerInt);
   tick();
   timerInt=setInterval(()=>{tick();renderWarranty()},1000);
 }
 
+
+function renderHistory(){
+  const historial=(current.historial||[]).slice().reverse();
+  $("historyList").innerHTML=historial.map(h=>`<div class="history-entry"><small>${new Date(h.fecha).toLocaleString("es-MX")}</small><b>${escapeHtml(h.estado||"")}</b><span>${escapeHtml(h.nota||"Sin nota")}</span></div>`).join("")||'<p class="empty-history">Aún no hay actualizaciones registradas.</p>';
+}
+
+function escapeHtml(value){
+  return String(value||"").replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
+}
+
 function tick(){
   if(!current)return;
 
   let end=
-    current.estado==="Entregado"&&current.entregado
-    ?current.entregado
+    (current.estado==="Entregado"&&current.entregado)||(current.estado==="Devolución"&&current.devolucion)
+    ?(current.estado==="Entregado"?current.entregado:current.devolucion)
     :Date.now();
 
   let ms=Math.max(0,end-current.recibido);
@@ -105,6 +117,13 @@ function tick(){
 function renderWarranty(){
   if(!current)return;
   const card=$("warrantyCard");
+  if(current.estado==="Devolución"){
+    card.classList.remove("hidden","vigente","vencida");
+    card.classList.add("sin");
+    $("warrantyStatus").textContent="DEVOLUCIÓN SIN GARANTÍA";
+    $("warrantyDetail").textContent="Los equipos devueltos no activan garantía.";
+    return;
+  }
   if(current.estado!=="Entregado"){
     card.classList.add("hidden");
     return;
@@ -130,20 +149,17 @@ function renderWarranty(){
 }
 
 $("share").onclick=()=>{
-  let t=
-`🎮 *ESTADO DE REPARACIÓN XE*
+  const respuesta=$("clientReply").value.trim();
+  if(!respuesta)return alert("Escribe tu respuesta antes de enviarla.");
+  const t=`🎮 *RESPUESTA DEL CLIENTE - XE*
 
 Folio: ${current.id}
 Equipo: ${current.equipo}
-Estado: ${current.estado}
-Nota: ${current.nota||"Sin nota"}
+Estado actual: ${current.estado}
 
-Consulta actualizada en XE Servicio Electrónico.`;
-
-  window.open(
-    `https://api.whatsapp.com/send?text=${encodeURIComponent(t)}`,
-    "_blank"
-  );
+*Mi respuesta:*
+${respuesta}`;
+  window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(t)}`,"_blank");
 };
 
 /* ABRIR FOLIO AUTOMÁTICAMENTE DESDE EL LINK */
@@ -158,3 +174,10 @@ if(folioURL){
 
   watch(folio);
 }
+
+$("requestCall").onclick=()=>{
+  if(!current)return;
+  const nombre=current.cliente||"cliente";
+  const mensaje=`Hola, soy ${nombre}.\n\nFolio: ${current.id}\n\nMe gustaría comunicarme con el equipo de XE Servicio Electrónico. Cuando tengan oportunidad, ¿podrían llamarme por WhatsApp?\n\nGracias.`;
+  window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(mensaje)}`,"_blank");
+};
