@@ -63,7 +63,7 @@ $("crear").onclick=async()=>{
     await setDoc(doc(db,"estados_publicos",folio),pub);
 
     ultimaRecepcion={folio,...d};
-    $("created").innerHTML=`FOLIO CREADO: ${folio}<br><br><button type="button" id="pdfRecepcionNueva">DESCARGAR PDF DE RECEPCIÓN</button> <button type="button" id="enviarWhatsapp">ENVIAR FOLIO POR WHATSAPP</button>`;
+    $("created").innerHTML=`FOLIO CREADO: ${folio}<br><br><button type="button" id="pdfRecepcionNueva">PDF RECEPCIÓN / ANTICIPO</button> <button type="button" id="enviarWhatsapp">ENVIAR FOLIO POR WHATSAPP</button>`;
     document.getElementById("pdfRecepcionNueva").addEventListener("click",()=>generarPDFRecepcion(ultimaRecepcion));
     document.getElementById("enviarWhatsapp").addEventListener("click",()=>enviarFolioWhatsApp(ultimaRecepcion));
 
@@ -151,7 +151,7 @@ function render(){
   const entregados=arr.filter(x=>x.estado==="Entregado");
   const devoluciones=arr.filter(x=>x.estado==="Devolución");
 
-  const tarjeta=x=>{const g=garantiaInfo(x);const historial=(x.historial||[]).slice().reverse();const clase=x.estado==="Entregado"?"item-entregado":x.estado==="Devolución"?"item-devolucion":"item-taller";return `<div class="item ${clase}"><div class="itemtop"><div><h3>${x.id} · ${esc(x.equipo)}</h3><p>${esc(x.cliente)} · ${esc(x.falla||"Sin falla reportada")}</p><p>WhatsApp: ${esc(x.telefono||"Sin número")}</p><div class="warranty-badge ${g.clase}"><b>${g.texto}</b><span>${g.detalle}</span></div></div><b>${x.estado}</b></div><div class="controls"><select data-state="${x.id}">${states.map(s=>`<option ${s===x.estado?"selected":""}>${s}</option>`).join("")}</select><textarea data-note="${x.id}" placeholder="Nueva actualización visible para el cliente">${esc(x.nota||"")}</textarea><button data-save="${x.id}">GUARDAR Y AVISAR</button></div><div class="financial-edit"><input type="number" min="0" step="0.01" data-anticipo="${x.id}" value="${Number(x.anticipo||0)}" placeholder="Anticipo"><input type="number" min="0" step="0.01" data-total="${x.id}" value="${Number(x.costoTotal||0)}" placeholder="Costo total"><textarea data-reparacion="${x.id}" placeholder="Reparación realizada para el PDF de entrega">${esc(x.reparacionRealizada||"")}</textarea><button data-finanzas="${x.id}">GUARDAR IMPORTES</button></div><div class="pdf-actions"><button data-pdf-recepcion="${x.id}">PDF RECEPCIÓN</button><button data-pdf-entrega="${x.id}">PDF ENTREGA</button></div><label class="notify-check"><input type="checkbox" data-notify="${x.id}" checked> Abrir WhatsApp con el aviso después de guardar</label><details class="admin-history"><summary>HISTORIAL (${historial.length})</summary><div>${historial.map(h=>`<div class="history-entry"><small>${new Date(h.fecha).toLocaleString("es-MX")}</small><b>${esc(h.estado||"")}</b><span>${esc(h.nota||"Sin nota")}</span></div>`).join("")||"<p>Sin historial.</p>"}</div></details></div>`};
+  const tarjeta=x=>{const g=garantiaInfo(x);const historial=(x.historial||[]).slice().reverse();const clase=x.estado==="Entregado"?"item-entregado":x.estado==="Devolución"?"item-devolucion":"item-taller";return `<div class="item ${clase}"><div class="itemtop"><div><h3>${x.id} · ${esc(x.equipo)}</h3><p>${esc(x.cliente)} · ${esc(x.falla||"Sin falla reportada")}</p><p>WhatsApp: ${esc(x.telefono||"Sin número")}</p><div class="warranty-badge ${g.clase}"><b>${g.texto}</b><span>${g.detalle}</span></div></div><b>${x.estado}</b></div><div class="controls"><select data-state="${x.id}">${states.map(s=>`<option ${s===x.estado?"selected":""}>${s}</option>`).join("")}</select><textarea data-note="${x.id}" placeholder="Nueva actualización visible para el cliente">${esc(x.nota||"")}</textarea><button data-save="${x.id}">GUARDAR Y AVISAR</button></div><div class="financial-edit"><input type="number" min="0" step="0.01" data-anticipo="${x.id}" value="${Number(x.anticipo||0)}" placeholder="Anticipo"><input type="number" min="0" step="0.01" data-total="${x.id}" value="${Number(x.costoTotal||0)}" placeholder="Costo total"><textarea data-reparacion="${x.id}" placeholder="Reparación realizada para el PDF de entrega">${esc(x.reparacionRealizada||"")}</textarea><button data-finanzas="${x.id}">GUARDAR IMPORTES</button></div><div class="pdf-actions"><button data-pdf-recepcion="${x.id}">PDF RECEPCIÓN Y ANTICIPO</button><button data-pdf-entrega="${x.id}">PDF ENTREGA Y PAGO</button></div><label class="notify-check"><input type="checkbox" data-notify="${x.id}" checked> Abrir WhatsApp con el aviso después de guardar</label><details class="admin-history"><summary>HISTORIAL (${historial.length})</summary><div>${historial.map(h=>`<div class="history-entry"><small>${new Date(h.fecha).toLocaleString("es-MX")}</small><b>${esc(h.estado||"")}</b><span>${esc(h.nota||"Sin nota")}</span></div>`).join("")||"<p>Sin historial.</p>"}</div></details></div>`};
 
   const bloque=(titulo,clase,datos,vacio)=>`<section class="equipment-group ${clase}"><div class="equipment-group-title"><h3>${titulo}</h3><span>${datos.length}</span></div>${datos.length?datos.map(tarjeta).join(""):`<p class="empty-group">${vacio}</p>`}</section>`;
   $("list").innerHTML=
@@ -269,24 +269,75 @@ if(paramsAdmin.get("desdeCita")==="1"){
 
 function moneda(v){return new Intl.NumberFormat("es-MX",{style:"currency",currency:"MXN"}).format(Number(v)||0)}
 function fechaLarga(v){return v?new Date(v).toLocaleString("es-MX",{dateStyle:"long",timeStyle:"short"}):"No especificada"}
-function piePDF(p,color){p.setDrawColor(...color);p.line(18,270,192,270);p.setTextColor(35,35,35);p.setFont("helvetica","bold");p.setFontSize(10);p.text("XE SERVICIO ELECTRÓNICO",105,278,{align:"center"});p.setFont("helvetica","normal");p.text("Expertos en Tecnología",105,284,{align:"center"})}
-function encabezadoPDF(p,titulo,subtitulo,color){p.setFillColor(...color);p.rect(0,0,210,42,"F");p.setTextColor(245,245,245);p.setFont("helvetica","bold");p.setFontSize(26);p.text("XE",18,27);p.setFontSize(16);p.text(titulo,52,19);p.setFontSize(8);p.setFont("helvetica","normal");p.text(subtitulo,52,28)}
-function lineaPDF(p,etiqueta,valor,y){p.setTextColor(45,45,45);p.setFont("helvetica","bold");p.setFontSize(10);p.text(etiqueta+":",18,y);p.setFont("helvetica","normal");const lines=p.splitTextToSize(String(valor??"No especificado"),132);p.text(lines,60,y);return y+Math.max(9,lines.length*5.2)}
+function pdfMarco(p,primario,secundario){
+  p.setFillColor(248,248,248);p.rect(0,0,210,297,"F");
+  p.setDrawColor(...primario);p.setLineWidth(1.2);p.roundedRect(8,8,194,281,3,3,"S");
+  p.setDrawColor(...secundario);p.setLineWidth(.35);p.roundedRect(11,11,188,275,2,2,"S");
+}
+function pdfLogo(p,x,y,primario,oscuro=false){
+  p.setFillColor(...primario);p.roundedRect(x,y,27,27,4,4,"F");
+  p.setTextColor(oscuro?20:255,oscuro?20:255,oscuro?20:255);p.setFont("helvetica","bold");p.setFontSize(19);p.text("XE",x+13.5,y+18,{align:"center"});
+}
+function pdfPie(p,primario){
+  p.setDrawColor(...primario);p.setLineWidth(.45);p.line(18,270,192,270);
+  p.setTextColor(38,38,38);p.setFont("helvetica","bold");p.setFontSize(9);p.text("XE SERVICIO ELECTRÓNICO",105,278,{align:"center"});
+  p.setFont("helvetica","normal");p.setFontSize(8);p.text("EXPERTOS EN TECNOLOGÍA",105,284,{align:"center"});
+}
+function pdfTitulo(p,titulo,subtitulo,primario,oscuro=false){
+  p.setFillColor(...(oscuro?[14,14,16]:primario));p.roundedRect(13,13,184,37,3,3,"F");
+  pdfLogo(p,19,18,oscuro?primario:[235,238,242],!oscuro);
+  p.setTextColor(...(oscuro?primario:[255,255,255]));p.setFont("helvetica","bold");p.setFontSize(17);p.text(titulo,55,29);
+  p.setFont("helvetica","normal");p.setFontSize(8);p.text(subtitulo.toUpperCase(),55,38);
+}
+function pdfEtiqueta(p,texto,x,y,w,primario,oscuro=false){
+  p.setFillColor(...(oscuro?[20,20,22]:primario));p.roundedRect(x,y,w,9,2,2,"F");
+  p.setTextColor(...(oscuro?primario:[255,255,255]));p.setFont("helvetica","bold");p.setFontSize(7.5);p.text(texto.toUpperCase(),x+w/2,y+6,{align:"center"});
+}
+function pdfCampo(p,etiqueta,valor,x,y,w,primario){
+  p.setFillColor(255,255,255);p.setDrawColor(220,223,228);p.roundedRect(x,y,w,20,2,2,"FD");
+  p.setTextColor(...primario);p.setFont("helvetica","bold");p.setFontSize(7);p.text(etiqueta.toUpperCase(),x+5,y+6);
+  p.setTextColor(45,45,48);p.setFont("helvetica","normal");p.setFontSize(9);const lines=p.splitTextToSize(String(valor??"No especificado"),w-10);p.text(lines.slice(0,2),x+5,y+12);
+}
+function pdfTextoLargo(p,etiqueta,valor,x,y,w,h,primario){
+  p.setFillColor(255,255,255);p.setDrawColor(220,223,228);p.roundedRect(x,y,w,h,2,2,"FD");
+  p.setTextColor(...primario);p.setFont("helvetica","bold");p.setFontSize(7);p.text(etiqueta.toUpperCase(),x+5,y+6);
+  p.setTextColor(45,45,48);p.setFont("helvetica","normal");p.setFontSize(8.5);const lines=p.splitTextToSize(String(valor??"No especificado"),w-10);p.text(lines.slice(0,Math.max(1,Math.floor((h-10)/4.5))),x+5,y+12);
+}
 function generarPDFRecepcion(x){
   if(!x||!window.jspdf)return alert("No se pudo cargar el generador PDF.");
-  const {jsPDF}=window.jspdf,p=new jsPDF();const rojo=[120,8,18];
-  encabezadoPDF(p,"RECEPCIÓN DE EQUIPO","DOCUMENTO DE INGRESO AL TALLER",rojo);
-  let y=55;[["Folio",x.folio||x.id],["Fecha y hora de recepción",fechaLarga(x.recibido)],["Cliente",x.cliente],["WhatsApp",x.telefono],["Equipo",x.equipo],["Modelo",x.modelo||"No especificado"],["Falla reportada",x.falla||"No especificada"],["Accesorios recibidos",x.accesorios||"No se registraron accesorios"],["Observaciones físicas",x.observaciones||"Sin observaciones registradas"],["Anticipo recibido",moneda(x.anticipo)]].forEach(([a,b])=>y=lineaPDF(p,a,b,y));
-  p.setFillColor(248,242,243);p.roundedRect(18,218,174,33,2,2,"F");p.setTextColor(...rojo);p.setFont("helvetica","bold");p.setFontSize(8);p.text("POLÍTICA DE DEVOLUCIÓN",25,227);p.setTextColor(45,45,45);p.setFont("helvetica","normal");const aviso=p.splitTextToSize("Todo equipo devuelto por no poder repararse o por no aceptar el presupuesto tiene un costo de $200 MXN. En controles, el costo es de $50 MXN.",158);p.text(aviso,25,234);p.setFillColor(248,242,243);p.roundedRect(18,255,174,12,2,2,"F");p.setTextColor(...rojo);p.setFont("helvetica","bold");p.setFontSize(9);p.text("ESTADO AL INGRESO: RECIBIDO",25,263);piePDF(p,rojo);p.save(`Recepcion-${x.folio||x.id}.pdf`)
+  const {jsPDF}=window.jspdf,p=new jsPDF();const rojo=[132,18,32],plata=[132,140,151];
+  pdfMarco(p,rojo,plata);pdfTitulo(p,"RECEPCIÓN DE EQUIPO","Comprobante de ingreso y anticipo",rojo);
+  pdfEtiqueta(p,"Folio "+(x.folio||x.id),145,55,47,rojo);
+  pdfCampo(p,"Cliente",x.cliente,18,69,85,rojo);pdfCampo(p,"WhatsApp",x.telefono,107,69,85,rojo);
+  pdfCampo(p,"Equipo",x.equipo,18,93,85,rojo);pdfCampo(p,"Modelo",x.modelo||"No especificado",107,93,85,rojo);
+  pdfCampo(p,"Fecha y hora de recepción",fechaLarga(x.recibido),18,117,174,rojo);
+  pdfTextoLargo(p,"Falla reportada",x.falla||"No especificada",18,141,174,27,rojo);
+  pdfTextoLargo(p,"Accesorios recibidos",x.accesorios||"No se registraron accesorios",18,172,85,30,rojo);
+  pdfTextoLargo(p,"Observaciones físicas",x.observaciones||"Sin observaciones registradas",107,172,85,30,rojo);
+  p.setFillColor(247,239,241);p.setDrawColor(...rojo);p.roundedRect(18,207,174,25,3,3,"FD");
+  p.setTextColor(...rojo);p.setFont("helvetica","bold");p.setFontSize(8);p.text("ANTICIPO RECIBIDO",26,217);
+  p.setFontSize(18);p.text(moneda(x.anticipo),184,221,{align:"right"});
+  p.setFillColor(249,249,250);p.setDrawColor(...plata);p.roundedRect(18,237,174,27,2,2,"FD");
+  p.setTextColor(...rojo);p.setFont("helvetica","bold");p.setFontSize(7.5);p.text("POLÍTICA DE DEVOLUCIÓN",25,246);
+  p.setTextColor(55,55,58);p.setFont("helvetica","normal");p.setFontSize(7.5);const aviso=p.splitTextToSize("Todo equipo devuelto por no poder repararse o por no aceptar el presupuesto tiene un costo de $200 MXN. En controles, el costo es de $50 MXN.",158);p.text(aviso,25,252);
+  pdfPie(p,rojo);p.save(`Recepcion-Anticipo-${x.folio||x.id}.pdf`)
 }
 function generarPDFEntrega(x){
   if(!x||!window.jspdf)return alert("No se pudo cargar el generador PDF.");
-  const {jsPDF}=window.jspdf,p=new jsPDF();const oro=[158,117,22];
-  p.setFillColor(12,12,12);p.rect(0,0,210,44,"F");p.setTextColor(218,178,76);p.setFont("helvetica","bold");p.setFontSize(27);p.text("XE",18,28);p.setFontSize(16);p.text("ENTREGA DE EQUIPO",52,20);p.setFontSize(8);p.setFont("helvetica","normal");p.text("CIERRE DE SERVICIO",52,29);
-  let y=55;[["Folio",x.id],["Cliente",x.cliente],["Equipo",x.equipo],["Modelo",x.modelo||"No especificado"],["Fecha de recepción",fechaLarga(x.recibido)],["Fecha de entrega",fechaLarga(x.entregado||Date.now())],["Reparación realizada",x.reparacionRealizada||x.nota||"No especificada"]].forEach(([a,b])=>y=lineaPDF(p,a,b,y));
-  p.setDrawColor(...oro);p.line(18,y,192,y);y+=10;p.setTextColor(...oro);p.setFont("helvetica","bold");p.text("HISTORIAL RESUMIDO",18,y);y+=8;
-  const hist=(x.historial||[]).slice(-6);hist.forEach(h=>{p.setTextColor(55,55,55);p.setFontSize(8);p.setFont("helvetica","bold");p.text(new Date(h.fecha).toLocaleDateString("es-MX"),18,y);p.setFont("helvetica","normal");const t=p.splitTextToSize(`${h.estado}: ${h.nota||"Sin detalle"}`,145);p.text(t,45,y);y+=Math.max(7,t.length*4.5)});
-  y=Math.max(y+6,180);p.setFillColor(20,20,20);p.roundedRect(18,y,174,42,2,2,"F");p.setTextColor(230,230,230);p.setFontSize(10);p.text(`Costo total: ${moneda(x.costoTotal)}`,26,y+12);p.text(`Anticipo: ${moneda(x.anticipo)}`,26,y+23);p.setTextColor(218,178,76);p.setFont("helvetica","bold");p.text(`Restante / liquidación: ${moneda(Math.max(0,(Number(x.costoTotal)||0)-(Number(x.anticipo)||0)))}`,26,y+34);
-  y+=52;p.setTextColor(...oro);p.setFont("helvetica","bold");p.text("GARANTÍA",18,y);p.setTextColor(50,50,50);p.setFont("helvetica","normal");p.text(x.garantiaHasta?`${x.garantiaTiempo||0} ${x.garantiaUnidad||"días"}. Vence: ${fechaLarga(x.garantiaHasta)}`:"Sin garantía registrada",48,y);
-  piePDF(p,oro);p.save(`Entrega-${x.id}.pdf`)
+  const {jsPDF}=window.jspdf,p=new jsPDF();const oro=[190,146,46],negro=[18,18,20];
+  pdfMarco(p,oro,[80,80,82]);pdfTitulo(p,"ENTREGA DE EQUIPO","Comprobante de servicio y pago",oro,true);
+  pdfEtiqueta(p,"Servicio finalizado",145,55,47,oro,true);
+  pdfCampo(p,"Folio",x.id,18,69,55,oro);pdfCampo(p,"Cliente",x.cliente,77,69,115,oro);
+  pdfCampo(p,"Equipo",x.equipo,18,93,85,oro);pdfCampo(p,"Modelo",x.modelo||"No especificado",107,93,85,oro);
+  pdfCampo(p,"Fecha de recepción",fechaLarga(x.recibido),18,117,85,oro);pdfCampo(p,"Fecha de entrega",fechaLarga(x.entregado||Date.now()),107,117,85,oro);
+  pdfTextoLargo(p,"Reparación realizada",x.reparacionRealizada||x.nota||"No especificada",18,141,174,30,oro);
+  pdfEtiqueta(p,"Resumen del servicio",18,176,72,oro,true);
+  let y=190;const hist=(x.historial||[]).slice(-4);hist.forEach(h=>{p.setFillColor(255,255,255);p.setDrawColor(225,225,226);p.roundedRect(18,y,174,13,2,2,"FD");p.setTextColor(...oro);p.setFont("helvetica","bold");p.setFontSize(7);p.text(new Date(h.fecha).toLocaleDateString("es-MX"),23,y+5);p.setTextColor(45,45,48);p.setFont("helvetica","normal");p.text(p.splitTextToSize(`${h.estado}: ${h.nota||"Sin detalle"}`,135).slice(0,1),50,y+5);y+=16});
+  y=Math.max(y+2,226);p.setFillColor(...negro);p.roundedRect(18,y,174,33,3,3,"F");
+  const total=Number(x.costoTotal)||0,anticipo=Number(x.anticipo)||0,restante=Math.max(0,total-anticipo);
+  p.setTextColor(235,235,235);p.setFont("helvetica","normal");p.setFontSize(8);p.text("COSTO TOTAL",27,y+10);p.text("ANTICIPO",86,y+10);p.text("PAGO FINAL",145,y+10);
+  p.setFont("helvetica","bold");p.setFontSize(12);p.text(moneda(total),27,y+23);p.text(moneda(anticipo),86,y+23);p.setTextColor(...oro);p.text(moneda(restante),145,y+23);
+  p.setTextColor(55,55,58);p.setFont("helvetica","normal");p.setFontSize(8);const garantia=x.garantiaHasta?`Garantía: ${x.garantiaTiempo||0} ${x.garantiaUnidad||"días"}. Vence ${fechaLarga(x.garantiaHasta)}.`:"Sin garantía registrada.";p.text(garantia,18,266);
+  pdfPie(p,oro);p.save(`Entrega-Pagada-${x.id}.pdf`)
 }
+
