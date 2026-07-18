@@ -32,3 +32,13 @@ Las colecciones existentes `equipos` y `estados_publicos` no se eliminan ni se m
 - PDF premium de entrega negro y dorado, con historial resumido y garantía, sin QR ni firma.
 - Botón del cliente para solicitar llamada por WhatsApp.
 - Mensaje de confianza al final del seguimiento.
+
+## Nota de entrega premium
+La Nota de Entrega utiliza el logotipo original de XE y contiene los datos del taller:
+- Mártires 30 de Diciembre, Col. Guerrero, Chilpancingo, Guerrero
+- Tel. 747 173 1852
+- Responsable: Ing. I. Daniel S.
+- Facebook: Daniel Sanchez Nava
+- TikTok / YouTube / Google Maps: XE Servicio Electrónico
+
+El documento no es una factura ni un comprobante fiscal. No incluye QR ni el apartado "Resumen del servicio".

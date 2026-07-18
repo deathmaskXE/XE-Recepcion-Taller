@@ -151,7 +151,7 @@ function render(){
   const entregados=arr.filter(x=>x.estado==="Entregado");
   const devoluciones=arr.filter(x=>x.estado==="Devolución");
 
-  const tarjeta=x=>{const g=garantiaInfo(x);const historial=(x.historial||[]).slice().reverse();const clase=x.estado==="Entregado"?"item-entregado":x.estado==="Devolución"?"item-devolucion":"item-taller";return `<div class="item ${clase}"><div class="itemtop"><div><h3>${x.id} · ${esc(x.equipo)}</h3><p>${esc(x.cliente)} · ${esc(x.falla||"Sin falla reportada")}</p><p>WhatsApp: ${esc(x.telefono||"Sin número")}</p><div class="warranty-badge ${g.clase}"><b>${g.texto}</b><span>${g.detalle}</span></div></div><b>${x.estado}</b></div><div class="controls"><select data-state="${x.id}">${states.map(s=>`<option ${s===x.estado?"selected":""}>${s}</option>`).join("")}</select><textarea data-note="${x.id}" placeholder="Nueva actualización visible para el cliente">${esc(x.nota||"")}</textarea><button data-save="${x.id}">GUARDAR Y AVISAR</button></div><div class="financial-edit"><input type="number" min="0" step="0.01" data-anticipo="${x.id}" value="${Number(x.anticipo||0)}" placeholder="Anticipo"><input type="number" min="0" step="0.01" data-total="${x.id}" value="${Number(x.costoTotal||0)}" placeholder="Costo total"><textarea data-reparacion="${x.id}" placeholder="Reparación realizada para el PDF de entrega">${esc(x.reparacionRealizada||"")}</textarea><button data-finanzas="${x.id}">GUARDAR IMPORTES</button></div><div class="pdf-actions"><button data-pdf-recepcion="${x.id}">PDF RECEPCIÓN Y ANTICIPO</button><button data-pdf-entrega="${x.id}">PDF ENTREGA Y PAGO</button></div><label class="notify-check"><input type="checkbox" data-notify="${x.id}" checked> Abrir WhatsApp con el aviso después de guardar</label><details class="admin-history"><summary>HISTORIAL (${historial.length})</summary><div>${historial.map(h=>`<div class="history-entry"><small>${new Date(h.fecha).toLocaleString("es-MX")}</small><b>${esc(h.estado||"")}</b><span>${esc(h.nota||"Sin nota")}</span></div>`).join("")||"<p>Sin historial.</p>"}</div></details></div>`};
+  const tarjeta=x=>{const g=garantiaInfo(x);const historial=(x.historial||[]).slice().reverse();const clase=x.estado==="Entregado"?"item-entregado":x.estado==="Devolución"?"item-devolucion":"item-taller";return `<div class="item ${clase}"><div class="itemtop"><div><h3>${x.id} · ${esc(x.equipo)}</h3><p>${esc(x.cliente)} · ${esc(x.falla||"Sin falla reportada")}</p><p>WhatsApp: ${esc(x.telefono||"Sin número")}</p><div class="warranty-badge ${g.clase}"><b>${g.texto}</b><span>${g.detalle}</span></div></div><b>${x.estado}</b></div><div class="controls"><select data-state="${x.id}">${states.map(s=>`<option ${s===x.estado?"selected":""}>${s}</option>`).join("")}</select><textarea data-note="${x.id}" placeholder="Nueva actualización visible para el cliente">${esc(x.nota||"")}</textarea><button data-save="${x.id}">GUARDAR Y AVISAR</button></div><div class="financial-edit"><input type="number" min="0" step="0.01" data-anticipo="${x.id}" value="${Number(x.anticipo||0)}" placeholder="Anticipo"><input type="number" min="0" step="0.01" data-total="${x.id}" value="${Number(x.costoTotal||0)}" placeholder="Costo total"><textarea data-reparacion="${x.id}" placeholder="Reparación realizada para el PDF de entrega">${esc(x.reparacionRealizada||"")}</textarea><button data-finanzas="${x.id}">GUARDAR IMPORTES</button></div><div class="pdf-actions"><button data-pdf-recepcion="${x.id}">PDF RECEPCIÓN Y ANTICIPO</button><button data-pdf-entrega="${x.id}">NOTA DE ENTREGA Y PAGO</button></div><label class="notify-check"><input type="checkbox" data-notify="${x.id}" checked> Abrir WhatsApp con el aviso después de guardar</label><details class="admin-history"><summary>HISTORIAL (${historial.length})</summary><div>${historial.map(h=>`<div class="history-entry"><small>${new Date(h.fecha).toLocaleString("es-MX")}</small><b>${esc(h.estado||"")}</b><span>${esc(h.nota||"Sin nota")}</span></div>`).join("")||"<p>Sin historial.</p>"}</div></details></div>`};
 
   const bloque=(titulo,clase,datos,vacio)=>`<section class="equipment-group ${clase}"><div class="equipment-group-title"><h3>${titulo}</h3><span>${datos.length}</span></div>${datos.length?datos.map(tarjeta).join(""):`<p class="empty-group">${vacio}</p>`}</section>`;
   $("list").innerHTML=
@@ -322,22 +322,114 @@ function generarPDFRecepcion(x){
   p.setTextColor(55,55,58);p.setFont("helvetica","normal");p.setFontSize(7.5);const aviso=p.splitTextToSize("Todo equipo devuelto por no poder repararse o por no aceptar el presupuesto tiene un costo de $200 MXN. En controles, el costo es de $50 MXN.",158);p.text(aviso,25,252);
   pdfPie(p,rojo);p.save(`Recepcion-Anticipo-${x.folio||x.id}.pdf`)
 }
-function generarPDFEntrega(x){
-  if(!x||!window.jspdf)return alert("No se pudo cargar el generador PDF.");
-  const {jsPDF}=window.jspdf,p=new jsPDF();const oro=[190,146,46],negro=[18,18,20];
-  pdfMarco(p,oro,[80,80,82]);pdfTitulo(p,"ENTREGA DE EQUIPO","Comprobante de servicio y pago",oro,true);
-  pdfEtiqueta(p,"Servicio finalizado",145,55,47,oro,true);
-  pdfCampo(p,"Folio",x.id,18,69,55,oro);pdfCampo(p,"Cliente",x.cliente,77,69,115,oro);
-  pdfCampo(p,"Equipo",x.equipo,18,93,85,oro);pdfCampo(p,"Modelo",x.modelo||"No especificado",107,93,85,oro);
-  pdfCampo(p,"Fecha de recepción",fechaLarga(x.recibido),18,117,85,oro);pdfCampo(p,"Fecha de entrega",fechaLarga(x.entregado||Date.now()),107,117,85,oro);
-  pdfTextoLargo(p,"Reparación realizada",x.reparacionRealizada||x.nota||"No especificada",18,141,174,30,oro);
-  pdfEtiqueta(p,"Resumen del servicio",18,176,72,oro,true);
-  let y=190;const hist=(x.historial||[]).slice(-4);hist.forEach(h=>{p.setFillColor(255,255,255);p.setDrawColor(225,225,226);p.roundedRect(18,y,174,13,2,2,"FD");p.setTextColor(...oro);p.setFont("helvetica","bold");p.setFontSize(7);p.text(new Date(h.fecha).toLocaleDateString("es-MX"),23,y+5);p.setTextColor(45,45,48);p.setFont("helvetica","normal");p.text(p.splitTextToSize(`${h.estado}: ${h.nota||"Sin detalle"}`,135).slice(0,1),50,y+5);y+=16});
-  y=Math.max(y+2,226);p.setFillColor(...negro);p.roundedRect(18,y,174,33,3,3,"F");
-  const total=Number(x.costoTotal)||0,anticipo=Number(x.anticipo)||0,restante=Math.max(0,total-anticipo);
-  p.setTextColor(235,235,235);p.setFont("helvetica","normal");p.setFontSize(8);p.text("COSTO TOTAL",27,y+10);p.text("ANTICIPO",86,y+10);p.text("PAGO FINAL",145,y+10);
-  p.setFont("helvetica","bold");p.setFontSize(12);p.text(moneda(total),27,y+23);p.text(moneda(anticipo),86,y+23);p.setTextColor(...oro);p.text(moneda(restante),145,y+23);
-  p.setTextColor(55,55,58);p.setFont("helvetica","normal");p.setFontSize(8);const garantia=x.garantiaHasta?`Garantía: ${x.garantiaTiempo||0} ${x.garantiaUnidad||"días"}. Vence ${fechaLarga(x.garantiaHasta)}.`:"Sin garantía registrada.";p.text(garantia,18,266);
-  pdfPie(p,oro);p.save(`Entrega-Pagada-${x.id}.pdf`)
+const DATOS_TALLER={
+  nombre:"XE Servicio Electrónico",
+  slogan:"Expertos en Tecnología",
+  responsable:"Ing. I. Daniel S.",
+  direccion:"Mártires 30 de Diciembre, Col. Guerrero, Chilpancingo, Guerrero",
+  telefono:"747 173 1852",
+  facebook:"Daniel Sanchez Nava",
+  tiktok:"XE Servicio Electrónico",
+  youtube:"XE Servicio Electrónico",
+  maps:"XE Servicio Electrónico"
+};
+let logoXeCache=null;
+function cargarLogoXE(){
+  if(logoXeCache)return Promise.resolve(logoXeCache);
+  return new Promise((resolve,reject)=>{
+    const img=new Image();
+    img.onload=()=>{logoXeCache=img;resolve(img)};
+    img.onerror=()=>reject(new Error("No se pudo cargar el logotipo XE"));
+    img.src="logo-xe.png";
+  });
 }
+function metalLine(p,x1,y1,x2,y2,c1=[17,168,221],c2=[210,164,60]){
+  const steps=14;
+  for(let i=0;i<steps;i++){
+    const t=i/(steps-1),r=Math.round(c1[0]*(1-t)+c2[0]*t),g=Math.round(c1[1]*(1-t)+c2[1]*t),b=Math.round(c1[2]*(1-t)+c2[2]*t);
+    p.setDrawColor(r,g,b);p.setLineWidth(.25);const yy=y1+(y2-y1)*t;p.line(x1,yy,x2,yy);
+  }
+}
+function premiumPanel(p,x,y,w,h,title,accent=[19,150,205],dark=false){
+  p.setFillColor(...(dark?[15,19,25]:[247,249,252]));p.setDrawColor(...accent);p.setLineWidth(.35);p.roundedRect(x,y,w,h,3,3,"FD");
+  p.setFillColor(...(dark?[26,33,43]:[229,236,244]));p.roundedRect(x,y,w,12,3,3,"F");p.rect(x,y+8,w,4,"F");
+  p.setTextColor(...(dark?[236,239,244]:accent));p.setFont("helvetica","bold");p.setFontSize(8);p.text(title.toUpperCase(),x+6,y+8);
+}
+function premiumField(p,label,value,x,y,w,accent=[19,150,205],options={}){
+  const {align="left",big=false}=options;
+  p.setTextColor(...accent);p.setFont("helvetica","bold");p.setFontSize(6.4);p.text(label.toUpperCase(),x,y);
+  p.setTextColor(32,37,45);p.setFont("helvetica",big?"bold":"normal");p.setFontSize(big?11:8.2);
+  const txt=p.splitTextToSize(String(value??"No especificado"),w);
+  p.text(txt.slice(0,big?1:2),align==="right"?x+w:x,y+6,{align});
+}
+async function generarPDFEntrega(x){
+  if(!x||!window.jspdf)return alert("No se pudo cargar el generador PDF.");
+  try{
+    const logo=await cargarLogoXE();
+    const {jsPDF}=window.jspdf,p=new jsPDF({unit:"mm",format:"a4",compress:true});
+    const azul=[16,151,211],azulOscuro=[7,53,88],oro=[207,161,55],plata=[168,178,189],negro=[8,12,18];
+    const total=Number(x.costoTotal)||0,anticipo=Number(x.anticipo)||0,pagoFinal=Math.max(0,total-anticipo);
 
+    // Fondo y marco metálico.
+    p.setFillColor(5,9,15);p.rect(0,0,210,297,"F");
+    p.setDrawColor(...plata);p.setLineWidth(1);p.roundedRect(5,5,200,287,3,3,"S");
+    p.setDrawColor(...azul);p.setLineWidth(.45);p.roundedRect(8,8,194,281,2,2,"S");
+    metalLine(p,9,9,201,12,azul,oro);metalLine(p,9,285,201,288,oro,azul);
+
+    // Encabezado premium.
+    p.setFillColor(...negro);p.roundedRect(10,11,190,58,3,3,"F");
+    p.setDrawColor(...azulOscuro);p.setLineWidth(.35);p.roundedRect(11,12,188,56,3,3,"S");
+    p.addImage(logo,"PNG",16,16,55,39,undefined,"FAST");
+    p.setTextColor(238,241,246);p.setFont("helvetica","bold");p.setFontSize(22);p.text("NOTA DE ENTREGA",194,29,{align:"right"});
+    p.setTextColor(...oro);p.setFontSize(8.5);p.text("COMPROBANTE DE SERVICIO Y PAGO",194,38,{align:"right"});
+    p.setTextColor(...plata);p.setFont("helvetica","normal");p.setFontSize(7.2);
+    p.text(`FOLIO  ${x.id}`,194,49,{align:"right"});
+    p.text(`EMISIÓN  ${fechaLarga(x.entregado||Date.now())}`,194,56,{align:"right"});
+    p.setTextColor(...azul);p.setFont("helvetica","bold");p.setFontSize(7.3);p.text("SERVICIO FINALIZADO",194,64,{align:"right"});
+
+    // Datos cliente / taller.
+    premiumPanel(p,12,75,90,54,"Datos del cliente",azul,false);
+    premiumField(p,"Nombre",x.cliente,18,94,76,azul);
+    premiumField(p,"WhatsApp",x.telefono||"No especificado",18,110,76,azul);
+    premiumField(p,"Folio de servicio",x.id,18,123,76,azul);
+
+    premiumPanel(p,108,75,90,54,"Datos del taller",oro,false);
+    premiumField(p,"Responsable",DATOS_TALLER.responsable,114,94,76,oro);
+    premiumField(p,"Dirección",DATOS_TALLER.direccion,114,108,76,oro);
+    premiumField(p,"Teléfono / WhatsApp",DATOS_TALLER.telefono,114,123,76,oro);
+
+    // Equipo y fechas.
+    premiumPanel(p,12,135,186,36,"Información del servicio",azul,false);
+    premiumField(p,"Equipo",x.equipo,18,154,38,azul);
+    premiumField(p,"Modelo / versión",x.modelo||"No especificado",61,154,38,azul);
+    premiumField(p,"Fecha de recepción",fechaLarga(x.recibido),104,154,40,azul);
+    premiumField(p,"Fecha de entrega",fechaLarga(x.entregado||Date.now()),149,154,41,azul);
+
+    // Reparación realizada, sin resumen de servicio.
+    premiumPanel(p,12,177,186,43,"Reparación realizada",oro,false);
+    p.setTextColor(29,34,42);p.setFont("helvetica","normal");p.setFontSize(9);
+    const rep=p.splitTextToSize(String(x.reparacionRealizada||x.nota||"No especificada"),174);
+    p.text(rep.slice(0,7),18,197);
+
+    // Panel financiero.
+    premiumPanel(p,12,226,120,42,"Detalle de pago",azulOscuro,true);
+    p.setTextColor(...plata);p.setFont("helvetica","normal");p.setFontSize(7);p.text("COSTO TOTAL",20,247);p.text("ANTICIPO",57,247);p.text("PAGO FINAL",94,247);
+    p.setTextColor(245,247,250);p.setFont("helvetica","bold");p.setFontSize(11);p.text(moneda(total),20,259);p.text(moneda(anticipo),57,259);
+    p.setTextColor(...oro);p.text(moneda(pagoFinal),94,259);
+
+    // Garantía.
+    premiumPanel(p,138,226,60,42,"Garantía",oro,true);
+    const garantia=x.garantiaHasta?`${x.garantiaTiempo||0} ${x.garantiaUnidad||"días"}`:"Sin garantía";
+    p.setTextColor(...oro);p.setFont("helvetica","bold");p.setFontSize(13);p.text(garantia.toUpperCase(),168,248,{align:"center"});
+    p.setTextColor(...plata);p.setFont("helvetica","normal");p.setFontSize(6.6);
+    p.text(x.garantiaHasta?`Vence: ${new Date(x.garantiaHasta).toLocaleDateString("es-MX",{day:"2-digit",month:"long",year:"numeric"})}`:"No registrada",168,259,{align:"center"});
+
+    // Redes y pie.
+    p.setTextColor(...plata);p.setFont("helvetica","normal");p.setFontSize(6.3);
+    p.text(`Facebook: ${DATOS_TALLER.facebook}   |   TikTok: ${DATOS_TALLER.tiktok}`,105,276,{align:"center"});
+    p.text(`YouTube: ${DATOS_TALLER.youtube}   |   Google Maps: ${DATOS_TALLER.maps}`,105,282,{align:"center"});
+    p.setTextColor(...oro);p.setFont("helvetica","bold");p.setFontSize(7.5);p.text(`${DATOS_TALLER.nombre.toUpperCase()}  •  ${DATOS_TALLER.slogan.toUpperCase()}`,105,289,{align:"center"});
+
+    p.save(`Nota-Entrega-Pagada-${x.id}.pdf`);
+  }catch(e){console.error(e);alert("No se pudo crear la Nota de Entrega: "+e.message)}
+}
