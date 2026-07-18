@@ -139,10 +139,100 @@ function garantiaInfo(x){
 function listen(){
   onSnapshot(query(collection(db,"equipos"),orderBy("recibido","desc")),s=>{
     all=s.docs.map(x=>({id:x.id,...x.data()}));
+    renderStats();
     render();
   });
 }
 $("filter").oninput=render;
+
+function valorFecha(v){
+  if(!v)return null;
+  if(typeof v.toDate==="function")return v.toDate();
+  const fecha=v instanceof Date?v:new Date(v);
+  return Number.isNaN(fecha.getTime())?null:fecha;
+}
+
+function esMesActual(v){
+  const fecha=valorFecha(v),hoy=new Date();
+  return !!fecha&&fecha.getFullYear()===hoy.getFullYear()&&fecha.getMonth()===hoy.getMonth();
+}
+
+function renderStats(){
+  const entregadosMes=all.filter(x=>x.estado==="Entregado"&&esMesActual(x.entregado));
+  $("statTaller").textContent=all.filter(x=>x.estado!=="Entregado"&&x.estado!=="Devolución").length;
+  $("statEntregados").textContent=entregadosMes.length;
+  $("statDevueltos").textContent=all.filter(x=>x.estado==="Devolución").length;
+  $("statAutorizacion").textContent=all.filter(x=>x.estado==="Esperando autorización").length;
+  $("statTotal").textContent=all.length;
+  $("statIngresos").textContent=moneda(entregadosMes.reduce((suma,x)=>suma+(Number(x.costoTotal)||0),0));
+}
+
+function serializarFirestore(valor){
+  if(valor===null||valor===undefined)return valor??null;
+  if(typeof valor.toDate==="function")return valor.toDate().toISOString();
+  if(valor instanceof Date)return valor.toISOString();
+  if(Array.isArray(valor))return valor.map(serializarFirestore);
+  if(typeof valor==="object")return Object.fromEntries(Object.entries(valor).map(([clave,dato])=>[clave,serializarFirestore(dato)]));
+  return valor;
+}
+
+function descargarArchivo(contenido,nombre,tipo){
+  const url=URL.createObjectURL(new Blob([contenido],{type:tipo}));
+  const enlace=document.createElement("a");
+  enlace.href=url;
+  enlace.download=nombre;
+  document.body.appendChild(enlace);
+  enlace.click();
+  enlace.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+function selloArchivo(prefijo,extension){
+  const d=new Date(),dos=n=>String(n).padStart(2,"0");
+  return `${prefijo}-${d.getFullYear()}-${dos(d.getMonth()+1)}-${dos(d.getDate())}-${dos(d.getHours())}${dos(d.getMinutes())}.${extension}`;
+}
+
+$("downloadBackup").onclick=async()=>{
+  const boton=$("downloadBackup"),msg=$("backupMsg"),nombres=["equipos","estados_publicos","citas","citas_publicas"];
+  boton.disabled=true;
+  msg.textContent="Leyendo colecciones de Firestore...";
+  const colecciones={},vacias=[],errores=[];
+  for(const nombre of nombres){
+    try{
+      const snapshot=await getDocs(collection(db,nombre));
+      colecciones[nombre]=Object.fromEntries(snapshot.docs.map(documento=>[documento.id,serializarFirestore(documento.data())]));
+      if(snapshot.empty)vacias.push(nombre);
+    }catch(e){
+      console.error(`Error al respaldar ${nombre}:`,e);
+      errores.push(`${nombre}: ${e.code||e.message}`);
+    }
+  }
+  const respaldo={version:"1.0",fechaRespaldo:new Date().toISOString(),colecciones};
+  if(errores.length)respaldo.errores=errores;
+  descargarArchivo(JSON.stringify(respaldo,null,2),selloArchivo("XE-Respaldo","json"),"application/json;charset=utf-8");
+  const avisos=[];
+  if(vacias.length)avisos.push(`Sin documentos: ${vacias.join(", ")}.`);
+  if(errores.length)avisos.push(`Fallaron: ${errores.join(" | ")}.`);
+  msg.textContent=avisos.length?`Respaldo descargado. ${avisos.join(" ")}`:"Respaldo completo descargado correctamente.";
+  boton.disabled=false;
+};
+
+function celdaCsv(valor){
+  return `"${String(valor??"").replace(/"/g,'""')}"`;
+}
+
+function fechaCsv(valor){
+  const fecha=valorFecha(valor);
+  return fecha?fecha.toLocaleString("es-MX"):"";
+}
+
+$("exportCsv").onclick=()=>{
+  const encabezados=["Folio","Cliente","Teléfono","Equipo","Modelo","Falla reportada","Estado","Fecha de recepción","Fecha de entrega","Anticipo","Costo total","Reparación realizada","Garantía hasta"];
+  const filas=all.map(x=>[x.id,x.cliente,x.telefono,x.equipo,x.modelo,x.falla,x.estado,fechaCsv(x.recibido),fechaCsv(x.entregado),Number(x.anticipo)||0,Number(x.costoTotal)||0,x.reparacionRealizada,fechaCsv(x.garantiaHasta)]);
+  const csv="\uFEFF"+[encabezados,...filas].map(fila=>fila.map(celdaCsv).join(",")).join("\r\n");
+  descargarArchivo(csv,selloArchivo("XE-Equipos","csv"),"text/csv;charset=utf-8");
+  $("backupMsg").textContent=`CSV exportado correctamente: ${filas.length} expediente${filas.length===1?"":"s"}.`;
+};
 
 function render(){
   const f=$("filter").value.toLowerCase();
@@ -150,7 +240,6 @@ function render(){
   const taller=arr.filter(x=>x.estado!=="Entregado"&&x.estado!=="Devolución");
   const entregados=arr.filter(x=>x.estado==="Entregado");
   const devoluciones=arr.filter(x=>x.estado==="Devolución");
-  actualizarEstadisticas();
 
   const tarjeta=x=>{const g=garantiaInfo(x);const historial=(x.historial||[]).slice().reverse();const clase=x.estado==="Entregado"?"item-entregado":x.estado==="Devolución"?"item-devolucion":"item-taller";return `<div class="item ${clase}"><div class="itemtop"><div><h3>${x.id} · ${esc(x.equipo)}</h3><p>${esc(x.cliente)} · ${esc(x.falla||"Sin falla reportada")}</p><p>WhatsApp: ${esc(x.telefono||"Sin número")}</p><div class="warranty-badge ${g.clase}"><b>${g.texto}</b><span>${g.detalle}</span></div></div><b>${x.estado}</b></div><div class="controls"><select data-state="${x.id}">${states.map(s=>`<option ${s===x.estado?"selected":""}>${s}</option>`).join("")}</select><textarea data-note="${x.id}" placeholder="Nueva actualización visible para el cliente">${esc(x.nota||"")}</textarea><button data-save="${x.id}">GUARDAR Y AVISAR</button></div><div class="financial-edit"><input type="number" min="0" step="0.01" data-anticipo="${x.id}" value="${Number(x.anticipo||0)}" placeholder="Anticipo"><input type="number" min="0" step="0.01" data-total="${x.id}" value="${Number(x.costoTotal||0)}" placeholder="Costo total"><textarea data-reparacion="${x.id}" placeholder="Reparación realizada para el PDF de entrega">${esc(x.reparacionRealizada||"")}</textarea><button data-finanzas="${x.id}">GUARDAR IMPORTES</button></div><div class="pdf-actions"><button data-pdf-recepcion="${x.id}">PDF RECEPCIÓN Y ANTICIPO</button><button data-pdf-entrega="${x.id}">NOTA DE ENTREGA Y PAGO</button></div><label class="notify-check"><input type="checkbox" data-notify="${x.id}" checked> Abrir WhatsApp con el aviso después de guardar</label><details class="admin-history"><summary>HISTORIAL (${historial.length})</summary><div>${historial.map(h=>`<div class="history-entry"><small>${new Date(h.fecha).toLocaleString("es-MX")}</small><b>${esc(h.estado||"")}</b><span>${esc(h.nota||"Sin nota")}</span></div>`).join("")||"<p>Sin historial.</p>"}</div></details></div>`};
 
@@ -242,79 +331,6 @@ ${link}
   if(ventana)ventana.location.href=url;
   else window.open(url,"_blank");
 }
-
-
-function esMismoMes(timestamp,referencia=new Date()){
-  if(!timestamp)return false;
-  const f=new Date(timestamp);
-  return f.getFullYear()===referencia.getFullYear()&&f.getMonth()===referencia.getMonth();
-}
-
-function moneda(valor){
-  return new Intl.NumberFormat("es-MX",{style:"currency",currency:"MXN",maximumFractionDigits:2}).format(Number(valor)||0);
-}
-
-function actualizarEstadisticas(){
-  const taller=all.filter(x=>x.estado!=="Entregado"&&x.estado!=="Devolución");
-  const entregadosMes=all.filter(x=>x.estado==="Entregado"&&esMismoMes(x.entregado||x.actualizado));
-  const devoluciones=all.filter(x=>x.estado==="Devolución");
-  const autorizacion=all.filter(x=>x.estado==="Esperando autorización");
-  const ingresos=entregadosMes.reduce((s,x)=>s+(Number(x.costoTotal)||0),0);
-  if($("statTaller"))$("statTaller").textContent=taller.length;
-  if($("statEntregadosMes"))$("statEntregadosMes").textContent=entregadosMes.length;
-  if($("statDevoluciones"))$("statDevoluciones").textContent=devoluciones.length;
-  if($("statIngresos"))$("statIngresos").textContent=moneda(ingresos);
-  if($("statAutorizacion"))$("statAutorizacion").textContent=autorizacion.length;
-  if($("statTotal"))$("statTotal").textContent=all.length;
-}
-
-function descargarArchivo(nombre,contenido,tipo){
-  const blob=new Blob([contenido],{type:tipo});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement("a");
-  a.href=url;a.download=nombre;document.body.appendChild(a);a.click();a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url),1000);
-}
-
-async function leerColeccion(nombre){
-  const snap=await getDocs(collection(db,nombre));
-  return snap.docs.map(d=>({id:d.id,...d.data()}));
-}
-
-$("backupAll").onclick=async()=>{
-  const b=$("backupAll");
-  try{
-    b.disabled=true;b.textContent="CREANDO RESPALDO...";
-    const [equipos,estadosPublicos,citas,citasPublicas]=await Promise.all([
-      leerColeccion("equipos"),leerColeccion("estados_publicos"),leerColeccion("citas"),leerColeccion("citas_publicas")
-    ]);
-    const respaldo={
-      formato:"XE-RESPALDO-V1",
-      negocio:"XE Servicio Electrónico",
-      generado:new Date().toISOString(),
-      totales:{equipos:equipos.length,estados_publicos:estadosPublicos.length,citas:citas.length,citas_publicas:citasPublicas.length},
-      datos:{equipos,estados_publicos:estadosPublicos,citas,citas_publicas:citasPublicas}
-    };
-    const fecha=new Date().toISOString().slice(0,10);
-    descargarArchivo(`XE-Respaldo-Completo-${fecha}.json`,JSON.stringify(respaldo,null,2),"application/json;charset=utf-8");
-    alert("Respaldo completo descargado correctamente. Guárdalo en un lugar seguro.");
-  }catch(e){
-    console.error(e);alert("No se pudo crear el respaldo: "+(e.code||e.message));
-  }finally{b.disabled=false;b.textContent="DESCARGAR RESPALDO COMPLETO"}
-};
-
-$("exportCsv").onclick=()=>{
-  const columnas=["Folio","Cliente","Telefono","Equipo","Modelo","Falla","Estado","Recibido","Entregado","Anticipo","Costo total","Reparacion realizada"];
-  const fila=v=>`"${String(v??"").replace(/"/g,'""')}"`;
-  const lineas=all.map(x=>[
-    x.id,x.cliente,x.telefono,x.equipo,x.modelo,x.falla,x.estado,
-    x.recibido?new Date(x.recibido).toLocaleString("es-MX"):"",
-    x.entregado?new Date(x.entregado).toLocaleString("es-MX"):"",
-    Number(x.anticipo||0),Number(x.costoTotal||0),x.reparacionRealizada||""
-  ].map(fila).join(","));
-  const csv="\ufeff"+[columnas.map(fila).join(","),...lineas].join("\n");
-  descargarArchivo(`XE-Equipos-${new Date().toISOString().slice(0,10)}.csv`,csv,"text/csv;charset=utf-8");
-};
 
 function esc(s){
   return String(s).replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));

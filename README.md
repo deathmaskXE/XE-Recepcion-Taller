@@ -42,9 +42,3 @@ La Nota de Entrega utiliza el logotipo original de XE y contiene los datos del t
 - TikTok / YouTube / Google Maps: XE Servicio Electrónico
 
 El documento no es una factura ni un comprobante fiscal. No incluye QR ni el apartado "Resumen del servicio".
-
-## Estadísticas y respaldo
-
-El panel administrador incluye estadísticas automáticas de equipos activos, entregas del mes, devoluciones, ingresos registrados, autorizaciones pendientes y expedientes totales.
-
-El botón **Descargar respaldo completo** genera un archivo JSON con las colecciones `equipos`, `estados_publicos`, `citas` y `citas_publicas`. No borra ni modifica datos. El botón **Exportar equipos CSV** genera una tabla compatible con Excel.
